@@ -1,0 +1,3 @@
+player_id,report_status,availability_multiplier,note
+00-0000000,Out,0.0,Example game-day inactive
+00-0000001,Questionable,0.8,Example manual status

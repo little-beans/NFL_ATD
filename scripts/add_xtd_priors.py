@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -7,159 +8,189 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
-def _collapse_base(base: pd.DataFrame, join_cols):
-    """
-    Collapse duplicate player-game rows in the base feature table.
-
-    These duplicates can occur when a player appears under multiple
-    team/role records within the same game. For pregame/model features,
-    keep a single representative row per player-game rather than
-    duplicating the game during the merge.
-    """
-    if not base.duplicated(join_cols, keep=False).any():
-        return base
-
-    print(
-        f"Base duplicates found: "
-        f"{base.duplicated(join_cols, keep=False).sum():,} rows; collapsing..."
+def _find_xtd_source() -> Path:
+    candidates = [
+        ROOT / "data" / "processed" / "xtd_player_games.parquet",
+        ROOT / "data" / "processed" / "td_xtd_history.parquet",
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    raise FileNotFoundError(
+        "Missing xTD player-game file. Expected one of:\n"
+        f"  {candidates[0]}\n"
+        f"  {candidates[1]}\n"
+        "Run scripts/build_xtd_history.py first."
     )
 
-    # Prefer first non-null / first row for metadata and pregame features.
-    # Sum only realized counting stats if present.
-    sum_cols = {
-        "td", "scored_td", "rush_att", "targets", "receptions",
-        "touches", "rz_opp", "gl_opp", "inside10_opp",
-        "inside5_opp", "rz_carries", "inside10_carries",
-        "inside5_carries", "rz_targets", "inside10_targets",
-        "inside5_targets",
+
+def _collapse_one_player_game(df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+
+    additive = {
+        "expected_tds",
+        "actual_tds",
+        "scored_td",
+        "touchdowns",
+        "total_tds",
+        "x_td",
+        "xtd",
+        "game_expected_tds",
     }
 
     agg = {}
-    for c in base.columns:
-        if c in join_cols:
+    for c in df.columns:
+        if c in keys:
             continue
-        if c in sum_cols:
-            # scored_td should remain binary after summation.
-            agg[c] = "sum"
-        else:
-            agg[c] = "first"
+        agg[c] = "sum" if c in additive else "first"
 
-    out = base.groupby(join_cols, as_index=False, dropna=False).agg(agg)
+    out = df.groupby(keys, dropna=False, as_index=False).agg(agg)
 
     if "scored_td" in out.columns:
-        out["scored_td"] = (out["scored_td"] > 0).astype(int)
+        out["scored_td"] = (pd.to_numeric(out["scored_td"], errors="coerce").fillna(0) > 0).astype(int)
 
     return out
 
 
-def _collapse_xtd(xtd: pd.DataFrame, join_cols):
-    """
-    Collapse xTD rows to exactly one player-game row.
-
-    xTD and realized TD counts are additive across a player's opportunities
-    within the same game. Prior/debt fields should not be summed repeatedly;
-    use the first available value because they describe the state entering
-    that game.
-    """
-    if not xtd.duplicated(join_cols, keep=False).any():
-        return xtd
-
-    print(
-        f"xTD duplicates found: "
-        f"{xtd.duplicated(join_cols, keep=False).sum():,} rows; collapsing..."
-    )
-
-    additive = {
-        "expected_tds_game",
-        "actual_tds_game",
-        "xTD",
-        "touchdown",
-    }
-
-    agg = {}
-    for c in xtd.columns:
-        if c in join_cols:
-            continue
-        if c in additive:
-            agg[c] = "sum"
-        else:
-            agg[c] = "first"
-
-    return xtd.groupby(join_cols, as_index=False, dropna=False).agg(agg)
-
-
 def main():
     base_path = ROOT / "data" / "processed" / "td_pregame_features.parquet"
-    xtd_path = ROOT / "data" / "processed" / "td_xtd_history.parquet"
-    out_path = ROOT / "data" / "processed" / "td_pregame_features_xtd.parquet"
-
-    if not base_path.exists():
-        raise FileNotFoundError(f"Missing base feature file: {base_path}")
-    if not xtd_path.exists():
-        raise FileNotFoundError(
-            f"Missing xTD history file: {xtd_path}\n"
-            "Run scripts/build_xtd_history.py first."
-        )
+    xtd_path = _find_xtd_source()
 
     print(f"Loading base features: {base_path}")
     base = pd.read_parquet(base_path)
-    print(f"Loaded {len(base):,} base rows")
 
-    print(f"Loading xTD history: {xtd_path}")
+    print(f"Loading xTD player-games: {xtd_path}")
     xtd = pd.read_parquet(xtd_path)
-    print(f"Loaded {len(xtd):,} xTD rows")
 
-    join_cols = ["season", "week", "game_id", "player_id"]
+    keys = ["season", "week", "game_id", "player_id"]
 
-    missing_base = [c for c in join_cols if c not in base.columns]
-    missing_xtd = [c for c in join_cols if c not in xtd.columns]
+    missing_base = [k for k in keys if k not in base.columns]
+    missing_xtd = [k for k in keys if k not in xtd.columns]
+
     if missing_base:
-        raise KeyError(f"Base file missing join columns: {missing_base}")
+        raise KeyError(f"Base feature file missing keys: {missing_base}")
     if missing_xtd:
-        raise KeyError(f"xTD file missing join columns: {missing_xtd}")
+        raise KeyError(f"xTD player-game file missing keys: {missing_xtd}")
 
-    base = _collapse_base(base, join_cols)
-    xtd = _collapse_xtd(xtd, join_cols)
+    base_dupes = int(base.duplicated(keys, keep=False).sum())
+    xtd_dupes = int(xtd.duplicated(keys, keep=False).sum())
 
-    print(f"After collapse: {len(base):,} base rows, {len(xtd):,} xTD rows")
+    if base_dupes:
+        print(f"Collapsing duplicate base player-games: {base_dupes:,} rows involved")
+        base = _collapse_one_player_game(base, keys)
 
-    xtd_feature_cols = [
-        c for c in [
-            "expected_tds_prior",
-            "actual_tds_prior",
-            "td_debt",
-            "expected_tds_l5",
-            "actual_tds_l5",
-            "td_debt_l5",
-            "td_debt_tag",
-            "expected_tds_game",
-            "actual_tds_game",
-        ]
-        if c in xtd.columns
+    if xtd_dupes:
+        print(f"Collapsing duplicate xTD player-games: {xtd_dupes:,} rows involved")
+        xtd = _collapse_one_player_game(xtd, keys)
+
+    expected_col = None
+    for c in ["expected_tds", "x_td", "xtd", "game_expected_tds", "expected_td"]:
+        if c in xtd.columns:
+            expected_col = c
+            break
+
+    actual_col = None
+    for c in ["actual_tds", "touchdowns", "total_tds", "scored_td", "td"]:
+        if c in xtd.columns:
+            actual_col = c
+            break
+
+    if expected_col is None:
+        raise KeyError(
+            "Could not find a game-level xTD column in xtd_player_games.parquet."
+        )
+
+    xtd = xtd.sort_values(["player_id", "season", "week"]).copy()
+
+    xtd["_expected_game"] = pd.to_numeric(
+        xtd[expected_col], errors="coerce"
+    ).fillna(0.0)
+
+    if actual_col is not None:
+        xtd["_actual_game"] = pd.to_numeric(
+            xtd[actual_col], errors="coerce"
+        ).fillna(0.0)
+    else:
+        xtd["_actual_game"] = 0.0
+
+    # Pregame priors: cumulative values shifted one game.
+    grp = xtd.groupby("player_id", sort=False)
+
+    xtd["expected_tds_prior"] = (
+        grp["_expected_game"].cumsum()
+        - xtd["_expected_game"]
+    )
+    xtd["actual_tds_prior"] = (
+        grp["_actual_game"].cumsum()
+        - xtd["_actual_game"]
+    )
+    xtd["td_debt"] = (
+        xtd["expected_tds_prior"] - xtd["actual_tds_prior"]
+    )
+
+    xtd["expected_tds_l5"] = (
+        grp["_expected_game"]
+        .transform(lambda s: s.shift(1).rolling(5, min_periods=1).sum())
+        .fillna(0.0)
+    )
+    xtd["actual_tds_l5"] = (
+        grp["_actual_game"]
+        .transform(lambda s: s.shift(1).rolling(5, min_periods=1).sum())
+        .fillna(0.0)
+    )
+    xtd["td_debt_l5"] = (
+        xtd["expected_tds_l5"] - xtd["actual_tds_l5"]
+    )
+
+    def _tag(x):
+        if x >= 1.25:
+            return "DUE++"
+        if x >= 0.65:
+            return "DUE"
+        if x <= -0.75:
+            return "REGRESSION_RISK"
+        return ""
+
+    xtd["td_debt_tag"] = xtd["td_debt_l5"].map(_tag)
+
+    prior_cols = keys + [
+        "expected_tds_prior",
+        "actual_tds_prior",
+        "td_debt",
+        "expected_tds_l5",
+        "actual_tds_l5",
+        "td_debt_l5",
+        "td_debt_tag",
     ]
 
-    keep = join_cols + xtd_feature_cols
+    prior = xtd[prior_cols].copy()
 
-    # Remove stale xTD columns from base if this script is rerun.
-    overlap = [c for c in xtd_feature_cols if c in base.columns]
-    if overlap:
-        print(f"Dropping existing xTD columns before merge: {overlap}")
-        base = base.drop(columns=overlap)
+    existing = [c for c in prior_cols if c not in keys and c in base.columns]
+    if existing:
+        base = base.drop(columns=existing)
 
-    out = base.merge(
-        xtd[keep],
-        on=join_cols,
+    merged = base.merge(
+        prior,
+        on=keys,
         how="left",
         validate="one_to_one",
     )
 
-    matched = out[xtd_feature_cols].notna().any(axis=1).sum() if xtd_feature_cols else 0
-    print(f"Matched xTD features onto {matched:,} / {len(out):,} player-games")
+    match_count = int(merged["expected_tds_prior"].notna().sum())
+    nonzero_count = int(
+        pd.to_numeric(merged["expected_tds_prior"], errors="coerce")
+        .fillna(0)
+        .gt(0)
+        .sum()
+    )
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out.to_parquet(out_path, index=False)
+    out = ROOT / "data" / "processed" / "td_pregame_features_xtd.parquet"
+    merged.to_parquet(out, index=False)
 
-    print(f"Saved {len(out):,} rows to {out_path}")
+    print(f"xTD matched player-games: {match_count:,}/{len(merged):,}")
+    print(f"Rows with non-zero expected_tds_prior: {nonzero_count:,}")
+    print(f"Saved xTD-enriched feature file: {out}")
 
 
 if __name__ == "__main__":
