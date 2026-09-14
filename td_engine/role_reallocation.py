@@ -1,18 +1,17 @@
 from __future__ import annotations
-
 import numpy as np
 import pandas as pd
 
 
-ROLE_COLS = {
-    "touch_share": "volume_share",
-    "target_share": "target_share",
-    "rz_share": "red_zone_share",
-    "goal_line_share": "goal_line_share",
+ROLE_WEIGHTS = {
+    "volume_share": 0.30,
+    "target_share": 0.20,
+    "red_zone_share": 0.25,
+    "goal_line_share": 0.25,
 }
 
 POSITION_GROUPS = {
-    "RB": {"RB", "FB"},
+    "RB": {"RB","FB"},
     "WR": {"WR"},
     "TE": {"TE"},
 }
@@ -32,6 +31,14 @@ def _replacement_weights(group: pd.DataFrame, role_col: str) -> pd.Series:
 
 
 def reallocate_team_roles(team_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Redistribute unavailable role to teammates.
+
+    Important V2 change:
+    injury_role_boost is now an ABSOLUTE weighted opportunity delta,
+    not the average relative percentage change. This prevents tiny
+    0 -> 0.01 changes from creating exaggerated ROLE_BOOST tags.
+    """
     d = team_df.copy()
 
     if "availability_multiplier" not in d.columns:
@@ -39,8 +46,7 @@ def reallocate_team_roles(team_df: pd.DataFrame) -> pd.DataFrame:
 
     d["availability_multiplier"] = (
         pd.to_numeric(d["availability_multiplier"], errors="coerce")
-        .fillna(1.0)
-        .clip(0, 1)
+        .fillna(1.0).clip(0,1)
     )
 
     if "position" not in d.columns:
@@ -48,95 +54,74 @@ def reallocate_team_roles(team_df: pd.DataFrame) -> pd.DataFrame:
 
     d["_pos_group"] = d["position"].map(_position_group)
 
-    boost_components = []
+    delta_cols = []
 
-    for _, role_col in ROLE_COLS.items():
+    for role_col in ROLE_WEIGHTS:
         if role_col not in d.columns:
             d[role_col] = 0.0
 
         base = pd.to_numeric(d[role_col], errors="coerce").fillna(0).clip(lower=0)
-
         retained = base * d["availability_multiplier"]
-        lost = float((base - retained).sum())
-
         adjusted = retained.copy()
 
-        if lost > 0:
-            eligible = d["availability_multiplier"] > 0
-            unavailable = d[(d["availability_multiplier"] < 1) & (base > 0)]
-            remaining = lost
+        unavailable = d[(d["availability_multiplier"] < 1) & (base > 0)]
+        total_lost = float((base - retained).sum())
+        remaining = total_lost
 
-            for idx, row in unavailable.iterrows():
-                individual_lost = float(base.loc[idx] - retained.loc[idx])
-                if individual_lost <= 0:
-                    continue
+        eligible = d["availability_multiplier"] > 0
 
-                same_group = (
-                    eligible
-                    & d["_pos_group"].eq(row["_pos_group"])
-                    & d.index.to_series().ne(idx)
-                )
-                candidates = d.loc[same_group]
+        # Keep most lost work within the same position group.
+        for idx, row in unavailable.iterrows():
+            lost = float(base.loc[idx] - retained.loc[idx])
+            if lost <= 0:
+                continue
 
-                same_group_pool = individual_lost * (0.80 if not candidates.empty else 0.0)
+            same_group_mask = (
+                eligible
+                & d["_pos_group"].eq(row["_pos_group"])
+                & d.index.to_series().ne(idx)
+            )
+            candidates = d.loc[same_group_mask]
 
-                if same_group_pool > 0:
-                    w = _replacement_weights(candidates, role_col)
-                    w = w / w.sum()
-                    adjusted.loc[candidates.index] += same_group_pool * w
-                    remaining -= same_group_pool
-
-            active_skill = eligible & d["_pos_group"].isin(["RB", "WR", "TE"])
-            candidates = d.loc[active_skill]
-
-            if remaining > 0 and not candidates.empty:
+            pool = lost * (0.80 if not candidates.empty else 0.0)
+            if pool > 0:
                 w = _replacement_weights(candidates, role_col)
                 w = w / w.sum()
-                adjusted.loc[candidates.index] += remaining * w
+                adjusted.loc[candidates.index] += pool * w
+                remaining -= pool
+
+        # Spill remainder across active skill players.
+        active_skill = eligible & d["_pos_group"].isin(["RB","WR","TE"])
+        candidates = d.loc[active_skill]
+        if remaining > 0 and not candidates.empty:
+            w = _replacement_weights(candidates, role_col)
+            w = w / w.sum()
+            adjusted.loc[candidates.index] += remaining * w
 
         adjusted = adjusted.clip(lower=0)
 
         if adjusted.sum() > 1.25:
             adjusted *= 1.25 / adjusted.sum()
 
-        out_col = f"adjusted_{role_col}"
-        d[out_col] = adjusted
+        d[f"adjusted_{role_col}"] = adjusted
+        d[f"delta_{role_col}"] = adjusted - base
+        delta_cols.append(f"delta_{role_col}")
 
-        denom = base.replace(0, np.nan)
+    # Weighted absolute opportunity delta.
+    score = pd.Series(0.0, index=d.index)
+    for role_col, weight in ROLE_WEIGHTS.items():
+        score += d[f"delta_{role_col}"] * weight
 
-        rel_boost = ((adjusted - base) / denom).replace(
-            [np.inf, -np.inf], np.nan
-        )
-
-        # pandas fillna requires a scalar/dict/Series, not ndarray.
-        fallback = pd.Series(
-            np.where(adjusted > base, 1.0, 0.0),
-            index=d.index,
-            dtype=float,
-        )
-
-        rel_boost = rel_boost.fillna(fallback)
-        boost_components.append(rel_boost)
-
-    if boost_components:
-        stacked = pd.concat(boost_components, axis=1)
-        d["injury_role_boost"] = stacked.mean(axis=1).clip(-1, 3)
-    else:
-        d["injury_role_boost"] = 0.0
+    d["injury_role_boost"] = score
 
     d["injury_context_tag"] = np.select(
         [
             d["availability_multiplier"].eq(0),
-            d["injury_role_boost"].ge(0.50),
-            d["injury_role_boost"].ge(0.20),
+            d["injury_role_boost"].ge(0.075),
+            d["injury_role_boost"].ge(0.030),
             d["availability_multiplier"].lt(1),
         ],
-        [
-            "OUT",
-            "MAJOR_ROLE_BOOST",
-            "ROLE_BOOST",
-            "LIMITED",
-        ],
+        ["OUT","MAJOR_ROLE_BOOST","ROLE_BOOST","LIMITED"],
         default="",
     )
 
@@ -151,8 +136,7 @@ def apply_role_reallocation(rows: pd.DataFrame) -> pd.DataFrame:
     if team_col not in rows.columns:
         raise KeyError("Role reallocation requires posteam or team.")
 
-    pieces = []
-    for _, g in rows.groupby(team_col, sort=False, dropna=False):
-        pieces.append(reallocate_team_roles(g))
-
-    return pd.concat(pieces, ignore_index=True)
+    return pd.concat(
+        [reallocate_team_roles(g) for _, g in rows.groupby(team_col, sort=False, dropna=False)],
+        ignore_index=True,
+    )
