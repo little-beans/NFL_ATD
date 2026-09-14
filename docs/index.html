@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#070b14">
+<title>NFL Anytime TD · Week 2</title>
+<style>
+:root {
+  --bg:#070b14;
+  --panel:#0e1526;
+  --panel2:#121b30;
+  --line:#23304d;
+  --text:#f4f7fb;
+  --muted:#91a0b8;
+  --green:#3ddc97;
+  --accent:#73a7ff;
+  --orange:#f08b5d;
+}
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;
+}
+.wrap {
+  max-width:1180px;
+  margin:0 auto;
+  padding:22px 16px 64px;
+}
+.hero {
+  padding:22px;
+  border:1px solid var(--line);
+  border-radius:20px;
+  background:linear-gradient(145deg,#111b31,#0b1020);
+}
+.eyebrow {
+  color:var(--accent);
+  font-weight:800;
+  font-size:.76rem;
+  letter-spacing:.12em;
+}
+h1 {
+  margin:7px 0 4px;
+  font-size:clamp(1.8rem,5vw,3rem);
+}
+.subtitle {
+  color:var(--muted);
+  margin:0;
+}
+.summary {
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+  margin-top:18px;
+}
+.summary a {
+  color:inherit;
+  text-decoration:none;
+  padding:13px 14px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.025);
+  border-radius:13px;
+}
+.summary span {
+  display:block;
+  color:var(--muted);
+  font-size:.74rem;
+}
+.summary strong {
+  font-size:1.35rem;
+}
+.updated {
+  color:var(--muted);
+  font-size:.78rem;
+  margin-top:14px;
+}
+.section {
+  margin-top:28px;
+}
+.section-head {
+  display:flex;
+  justify-content:space-between;
+  align-items:end;
+  gap:12px;
+  margin-bottom:12px;
+}
+.section h2 {
+  margin:0;
+  font-size:1.2rem;
+}
+.section p {
+  color:var(--muted);
+  margin:4px 0 0;
+  font-size:.86rem;
+}
+.count {
+  min-width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:var(--panel2);
+  border:1px solid var(--line);
+  font-weight:800;
+}
+.cards {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+.player-card {
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:16px;
+}
+.card-top {
+  display:flex;
+  justify-content:space-between;
+  gap:16px;
+}
+.player {
+  font-size:1.1rem;
+  font-weight:850;
+}
+.meta,.book {
+  color:var(--muted);
+  font-size:.78rem;
+  margin-top:3px;
+}
+.best-price {
+  text-align:right;
+}
+.price {
+  font-size:1.28rem;
+  font-weight:900;
+  color:var(--green);
+}
+.metric-grid {
+  margin-top:15px;
+  display:grid;
+  grid-template-columns:repeat(6,1fr);
+  gap:8px;
+  border-top:1px solid var(--line);
+  padding-top:13px;
+}
+.metric-grid span {
+  display:block;
+  color:var(--muted);
+  font-size:.67rem;
+}
+.metric-grid strong {
+  display:block;
+  margin-top:2px;
+  font-size:.9rem;
+}
+.support-row {
+  display:flex;
+  gap:18px;
+  margin-top:13px;
+  color:var(--muted);
+  font-size:.78rem;
+}
+.support-row b {
+  color:var(--text);
+}
+.tag {
+  margin-left:7px;
+  padding:2px 6px;
+  border-radius:6px;
+  background:#17243d;
+  color:#b9d0ff;
+  font-size:.65rem;
+}
+.flags {
+  color:var(--orange);
+  font-size:.72rem;
+  margin-top:10px;
+}
+.empty {
+  color:var(--muted);
+  border:1px dashed var(--line);
+  border-radius:14px;
+  padding:18px;
+  text-align:center;
+}
+.note {
+  margin-top:32px;
+  padding:14px 16px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  color:var(--muted);
+  font-size:.78rem;
+  line-height:1.5;
+}
+@media (max-width:800px) {
+  .summary { grid-template-columns:repeat(2,1fr); }
+  .cards { grid-template-columns:1fr; }
+  .metric-grid {
+    grid-template-columns:repeat(3,1fr);
+    row-gap:13px;
+  }
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="hero">
+    <div class="eyebrow">NFL ANYTIME TOUCHDOWN</div>
+    <h1>Week 2 Value Board</h1>
+    <p class="subtitle">2026 · Best available ATD prices vs model probabilities</p>
+
+    <div class="summary">
+      <a href="#strong-value"><span>Strong Value</span><strong>0</strong></a>
+      <a href="#actionable"><span>Actionable</span><strong>0</strong></a>
+      <a href="#watchlist"><span>Watchlist</span><strong>1</strong></a>
+      <a href="#review-only"><span>Review Only</span><strong>8</strong></a>
+    </div>
+
+    <div class="updated">Last generated: 2026-09-14 10:59 AM Eastern Daylight Time</div>
+  </header>
+
+  
+    <section id="strong-value" class="section">
+      <div class="section-head">
+        <div>
+          <h2>STRONG VALUE</h2>
+          <p>7+ pp edge · 3+ books</p>
+        </div>
+        <span class="count">0</span>
+      </div>
+      <div class="cards">
+        <div class="empty">No players in this section.</div>
+      </div>
+    </section>
+    
+
+    <section id="actionable" class="section">
+      <div class="section-head">
+        <div>
+          <h2>ACTIONABLE</h2>
+          <p>4–7 pp edge · 3+ books</p>
+        </div>
+        <span class="count">0</span>
+      </div>
+      <div class="cards">
+        <div class="empty">No players in this section.</div>
+      </div>
+    </section>
+    
+
+    <section id="watchlist" class="section">
+      <div class="section-head">
+        <div>
+          <h2>WATCHLIST</h2>
+          <p>2–4 pp edge · 2+ books</p>
+        </div>
+        <span class="count">1</span>
+      </div>
+      <div class="cards">
+        
+    <article class="player-card">
+      <div class="card-top">
+        <div>
+          <div class="player">A.St. Brown</div>
+          <div class="meta">DET · WR <span class="tag">DUE++</span></div>
+        </div>
+        <div class="best-price">
+          <div class="price">+120</div>
+          <div class="book">DraftKings</div>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div><span>Model</span><strong>48.4%</strong></div>
+        <div><span>Fair</span><strong>+107</strong></div>
+        <div><span>Market</span><strong>45.5%</strong></div>
+        <div><span>Edge</span><strong>+2.9 pp</strong></div>
+        <div><span>ROI</span><strong>6.4%</strong></div>
+        <div><span>Books</span><strong>2</strong></div>
+      </div>
+
+      <div class="support-row">
+        <span>Role <b>76</b></span>
+        <span>xTD5 <b>3.84</b></span>
+      </div>
+      
+    </article>
+    
+      </div>
+    </section>
+    
+
+    <section id="review-only" class="section">
+      <div class="section-head">
+        <div>
+          <h2>REVIEW ONLY</h2>
+          <p>Positive edge, but thin or lower-confidence market</p>
+        </div>
+        <span class="count">8</span>
+      </div>
+      <div class="cards">
+        
+    <article class="player-card">
+      <div class="card-top">
+        <div>
+          <div class="player">B.Wright</div>
+          <div class="meta">DET · TE </div>
+        </div>
+        <div class="best-price">
+          <div class="price">+1300</div>
+          <div class="book">BetOnline.ag</div>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div><span>Model</span><strong>18.6%</strong></div>
+        <div><span>Fair</span><strong>+438</strong></div>
+        <div><span>Market</span><strong>7.1%</strong></div>
+        <div><span>Edge</span><strong>+11.4 pp</strong></div>
+        <div><span>ROI</span><strong>160.1%</strong></div>
+        <div><span>Books</span><strong>1</strong></div>
+      </div>
+
+      <div class="support-row">
+        <span>Role <b>1</b></span>
+        <span>xTD5 <b>0.08</b></span>
+      </div>
+      <div class="flags">THIN_MARKET_1_BOOK • LOW_ROLE_SUPPORT • LARGE_EDGE_ONE_BOOK</div>
+    </article>
+    
+
+    <article class="player-card">
+      <div class="card-top">
+        <div>
+          <div class="player">Q.Judkins</div>
+          <div class="meta">CLE · RB </div>
+        </div>
+        <div class="best-price">
+          <div class="price">+145</div>
+          <div class="book">DraftKings</div>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div><span>Model</span><strong>48.0%</strong></div>
+        <div><span>Fair</span><strong>+108</strong></div>
+        <div><span>Market</span><strong>40.8%</strong></div>
+        <div><span>Edge</span><strong>+7.2 pp</strong></div>
+        <div><span>ROI</span><strong>17.7%</strong></div>
+        <div><span>Books</span><strong>1</strong></div>
+      </div>
+
+      <div class="support-row">
+        <span>Role <b>96</b></span>
+        <span>xTD5 <b>2.14</b></span>
+      </div>
+      <div class="flags">THIN_MARKET_1_BOOK</div>
+    </article>
+    
+
+    <article class="player-card">
+      <div class="card-top">
+        <div>
+          <div class="player">I.TeSlaa</div>
+          <div class="meta">DET · WR <span class="tag">REGRESSION_RISK</span></div>
+        </div>
+        <div class="best-price">
+          <div class="price">+650</div>
+          <div class="book">BetOnline.ag</div>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div><span>Model</span><strong>19.8%</strong></div>
+        <div><span>Fair</span><strong>+405</strong></div>
+        <div><span>Market</span><strong>13.3%</strong></div>
+        <div><span>Edge</span><strong>+6.5 pp</strong></div>
+        <div><span>ROI</span><strong>48.6%</strong></div>
+        <div><span>Books</span><strong>1</strong></div>
+      </div>
+
+      <div class="support-row">
+        <span>Role <b>54</b></span>
+        <span>xTD5 <b>2.19</b></span>
+      </div>
+      <div class="flags">THIN_MARKET_1_BOOK</div>
+    </article>
+    
+
+    <article class="player-card">
+      <div class="card-top">
+        <div>
+          <div class="player">D.Knox</div>
+          <div class="meta">BUF · TE </div>
+        </div>
+        <div class="best-price">
+          <div class="price">+450</div>
+          <div class="book">BetOnline.ag</div>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div><span>Model</span><strong>24.3%</strong></div>
+        <div><span>Fair</span><strong>+311</strong></div>
+        <div><span>Market</span><strong>18.2%</strong></div>
+        <div><span>Edge</span><strong>+6.1 pp</strong></div>
+        <div><span>ROI</span><strong>33.7%</strong></div>
+        <div><span>Books</span><strong>1</strong></div>
+      </div>
+
+      <div class="support-row">
+        <span>Role <b>52</b></span>
+        <span>xTD5 <b>1.20</b></span>
+      </div>
+      <div class="flags">THIN_MARKET_1_BOOK</div>
+    </article>
+    
+
+    <article class="player-card">
+      <div class="card-top">
+        <div>
+          <div class="player">W.Marks</div>
+          <div class="meta">HOU · RB <span class="tag">DUE++</span></div>
+        </div>
+        <div class="best-price">
+          <div class="price">+245</div>
+          <div class="book">DraftKings</div>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div><span>Model</span><strong>35.1%</strong></div>
+        <div><span>Fair</span><strong>+185</strong></div>
+        <div><span>Market</span><strong>29.0%</strong></div>
+        <div><span>Edge</span><strong>+6.1 pp</strong></div>
+        <div><span>ROI</span><strong>21.1%</strong></div>
+        <div><span>Books</span><strong>1</strong></div>
+      </div>
+
+      <div class="support-row">
+        <span>Role <b>64</b></span>
+        <span>xTD5 <b>2.45</b></span>
+      </div>
+      <div class="flags">THIN_MARKET_1_BOOK</div>
+    </article>
+    
+
+    <article class="player-card">
+      <div class="card-top">
+        <div>
+          <div class="player">D.Metcalf</div>
+          <div class="meta">PIT · WR <span class="tag">DUE</span></div>
+        </div>
+        <div class="best-price">
+          <div class="price">+260</div>
+          <div class="book">DraftKings</div>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div><span>Model</span><strong>32.5%</strong></div>
+        <div><span>Fair</span><strong>+207</strong></div>
+        <div><span>Market</span><strong>27.8%</strong></div>
+        <div><span>Edge</span><strong>+4.8 pp</strong></div>
+        <div><span>ROI</span><strong>17.1%</strong></div>
+        <div><span>Books</span><strong>1</strong></div>
+      </div>
+
+      <div class="support-row">
+        <span>Role <b>41</b></span>
+        <span>xTD5 <b>1.68</b></span>
+      </div>
+      <div class="flags">THIN_MARKET_1_BOOK</div>
+    </article>
+    
+
+    <article class="player-card">
+      <div class="card-top">
+        <div>
+          <div class="player">K.Coleman</div>
+          <div class="meta">BUF · WR </div>
+        </div>
+        <div class="best-price">
+          <div class="price">+500</div>
+          <div class="book">BetOnline.ag</div>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div><span>Model</span><strong>20.0%</strong></div>
+        <div><span>Fair</span><strong>+399</strong></div>
+        <div><span>Market</span><strong>16.7%</strong></div>
+        <div><span>Edge</span><strong>+3.4 pp</strong></div>
+        <div><span>ROI</span><strong>20.1%</strong></div>
+        <div><span>Books</span><strong>1</strong></div>
+      </div>
+
+      <div class="support-row">
+        <span>Role <b>45</b></span>
+        <span>xTD5 <b>2.33</b></span>
+      </div>
+      <div class="flags">THIN_MARKET_1_BOOK</div>
+    </article>
+    
+
+    <article class="player-card">
+      <div class="card-top">
+        <div>
+          <div class="player">C.Loveland</div>
+          <div class="meta">CHI · TE <span class="tag">DUE++</span></div>
+        </div>
+        <div class="best-price">
+          <div class="price">+200</div>
+          <div class="book">DraftKings</div>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div><span>Model</span><strong>35.9%</strong></div>
+        <div><span>Fair</span><strong>+179</strong></div>
+        <div><span>Market</span><strong>33.3%</strong></div>
+        <div><span>Edge</span><strong>+2.6 pp</strong></div>
+        <div><span>ROI</span><strong>7.7%</strong></div>
+        <div><span>Books</span><strong>1</strong></div>
+      </div>
+
+      <div class="support-row">
+        <span>Role <b>86</b></span>
+        <span>xTD5 <b>3.50</b></span>
+      </div>
+      <div class="flags">THIN_MARKET_1_BOOK</div>
+    </article>
+    
+      </div>
+    </section>
+    
+
+  <div class="note">
+    <strong>How to read this:</strong>
+    Model is the estimated probability of an anytime TD. Fair is the model-implied American price.
+    Edge is model probability minus sportsbook implied probability. ROI is model-estimated expected
+    return at the displayed price. Review-only candidates typically lack market depth or supporting context.
+  </div>
+</main>
+</body>
+</html>
