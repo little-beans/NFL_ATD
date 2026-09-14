@@ -46,13 +46,13 @@ def main():
 
     cleaned = apply_current_roster(rows, roster)
 
-    prob_col = "td_probability"
-    if prob_col not in cleaned.columns and "td_probability_pct" in cleaned.columns:
+    if "td_probability" not in cleaned.columns and "td_probability_pct" in cleaned.columns:
         cleaned["td_probability"] = (
             pd.to_numeric(cleaned["td_probability_pct"], errors="coerce") / 100.0
         )
 
     cleaned = add_probability_diagnostics(cleaned, "td_probability")
+
     if "td_probability" in cleaned.columns:
         cleaned["td_probability_pct"] = 100 * cleaned["td_probability"]
 
@@ -62,22 +62,30 @@ def main():
     print(f"Rows: {len(cleaned):,}")
     print(f"Roster matched: {cleaned['roster_matched'].sum():,}/{len(cleaned):,}")
     print(f"Team changes detected: {cleaned['team_changed'].sum():,}")
+
     if "probability_clipped" in cleaned.columns:
         print(f"Extreme probabilities clipped: {cleaned['probability_clipped'].sum():,}")
+
+    if "roster_source" in cleaned.columns:
+        print("\nRoster source distribution:")
+        print(cleaned["roster_source"].value_counts(dropna=False).to_string())
 
     changed = cleaned[cleaned["team_changed"]].copy()
     if not changed.empty:
         show = [c for c in [
-            "player_name","historical_team","current_team","position"
+            "player_name","historical_team","current_team",
+            "roster_source","roster_source_week","position"
         ] if c in changed.columns]
         print("\nTeam corrections:")
-        print(changed[show].head(30).to_string(index=False))
+        print(changed[show].head(50).to_string(index=False))
 
     unmatched = cleaned[~cleaned["roster_matched"]]
     if not unmatched.empty:
-        show = [c for c in ["player_name","player_id","historical_team"] if c in unmatched.columns]
-        print("\nUNMATCHED roster players:")
-        print(unmatched[show].head(30).to_string(index=False))
+        show = [c for c in [
+            "player_name","player_id","historical_team"
+        ] if c in unmatched.columns]
+        print(f"\nUNMATCHED roster players ({len(unmatched)}):")
+        print(unmatched[show].head(50).to_string(index=False))
 
     print(f"\nSaved cleaned weekly output to {out}")
 
